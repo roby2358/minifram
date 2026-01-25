@@ -1,5 +1,6 @@
 """LLM client for local model interaction."""
 import httpx
+import json
 from typing import AsyncIterator
 
 
@@ -34,17 +35,45 @@ class LLMClient:
         if tools:
             payload["tools"] = tools
 
+        # Echo request payload
+        print("\n" + "="*80)
+        print("🔵 REQUEST TO MODEL:")
+        print(json.dumps(payload, indent=2))
+        print("="*80 + "\n")
+
         try:
             response = await self.client.post(self.endpoint, json=payload)
             response.raise_for_status()
-            return response.json()
+            result = response.json()
+
+            # Echo response body
+            print("\n" + "="*80)
+            print("🟢 RESPONSE FROM MODEL:")
+            print(json.dumps(result, indent=2))
+            print("="*80 + "\n")
+
+            return result
         except httpx.HTTPStatusError as e:
             # If tools caused the error (400), retry without tools
             if e.response.status_code == 400 and tools:
+                print(f"⚠️  Tool call failed (400), retrying without tools\n")
                 payload.pop("tools", None)
+
+                print("\n" + "="*80)
+                print("🔵 RETRY REQUEST TO MODEL:")
+                print(json.dumps(payload, indent=2))
+                print("="*80 + "\n")
+
                 response = await self.client.post(self.endpoint, json=payload)
                 response.raise_for_status()
                 result = response.json()
+
+                # Echo response body
+                print("\n" + "="*80)
+                print("🟢 RETRY RESPONSE FROM MODEL:")
+                print(json.dumps(result, indent=2))
+                print("="*80 + "\n")
+
                 # Mark that tools aren't supported
                 result["_tools_unsupported"] = True
                 return result

@@ -26,8 +26,21 @@
 
         <!-- Chat view -->
         <div class="view-container" id="chatView">
-            <div class="chat-container" id="chatContainer">
-                <div class="messages" id="messages"></div>
+            <div class="chat-split">
+                <div class="chat-panel">
+                    <div class="panel-header">Chat</div>
+                    <div class="chat-container" id="chatContainer">
+                        <div class="messages" id="messages"></div>
+                    </div>
+                </div>
+                <div class="reasoning-panel">
+                    <div class="panel-header">Reasoning Trace</div>
+                    <div class="reasoning-container" id="reasoningContainer">
+                        <div class="reasoning-messages" id="reasoningMessages">
+                            <div class="empty-reasoning">No reasoning trace yet</div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Input area -->

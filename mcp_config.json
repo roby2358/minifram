@@ -2,5 +2,12 @@
   "hello": {
     "command": "python",
     "args": ["src/mcp/hello_server.py"]
+  },
+  "z3_solver": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "yuwakisa-z3solver-mcp"
+    ]
   }
 }

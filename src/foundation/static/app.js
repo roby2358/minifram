@@ -96,6 +96,9 @@ class ChatClient {
             case 'message':
                 this.addMessage(data.role, data.content, data.tool_call);
                 break;
+            case 'reasoning':
+                this.addReasoning(data.content);
+                break;
             case 'error':
                 this.addMessage('error', data.content);
                 break;
@@ -156,6 +159,25 @@ class ChatClient {
         if (loadingDiv) {
             loadingDiv.remove();
         }
+    }
+
+    addReasoning(content) {
+        const reasoningDiv = document.getElementById('reasoningMessages');
+
+        // Remove empty state
+        const emptyState = reasoningDiv.querySelector('.empty-reasoning');
+        if (emptyState) {
+            emptyState.remove();
+        }
+
+        const reasoningItem = document.createElement('div');
+        reasoningItem.className = 'reasoning-item thinking';
+        reasoningItem.textContent = content;
+        reasoningDiv.appendChild(reasoningItem);
+
+        // Auto-scroll to bottom
+        const reasoningContainer = document.getElementById('reasoningContainer');
+        reasoningContainer.scrollTop = reasoningContainer.scrollHeight;
     }
 
     sendMessage() {

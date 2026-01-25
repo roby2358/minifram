@@ -26,13 +26,28 @@ class Conversation:
         self.messages.append(msg)
         return msg
 
-    def to_llm_format(self) -> list[dict[str, str]]:
+    def to_llm_format(self) -> list[dict]:
         """Convert conversation to LLM API format."""
-        return [
-            {"role": msg.role, "content": msg.content}
-            for msg in self.messages
-            if msg.role in ('user', 'assistant', 'system')
-        ]
+        result = []
+        for msg in self.messages:
+            if msg.role in ('user', 'assistant', 'system'):
+                # Include tool_call data if present
+                if msg.tool_call:
+                    # This is a tool call message
+                    result.append({
+                        "role": msg.role,
+                        "content": msg.content,
+                        "tool_call_data": msg.tool_call  # Store for reconstruction
+                    })
+                else:
+                    result.append({"role": msg.role, "content": msg.content})
+            elif msg.role == 'tool':
+                # Tool result message
+                result.append({
+                    "role": "tool",
+                    "content": msg.content
+                })
+        return result
 
 
 class ConversationStore:
