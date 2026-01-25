@@ -13,12 +13,14 @@ class LLMClient:
 
     async def chat(
         self,
-        messages: list[dict[str, str]]
+        messages: list[dict[str, str]],
+        tools: list[dict] = None
     ) -> dict:
         """Send chat completion request to local LLM.
 
         Args:
             messages: List of message dicts with 'role' and 'content'
+            tools: Optional list of tool definitions
 
         Returns:
             LLM response dict
@@ -28,9 +30,25 @@ class LLMClient:
             "messages": messages,
         }
 
-        response = await self.client.post(self.endpoint, json=payload)
-        response.raise_for_status()
-        return response.json()
+        # Add tools if provided
+        if tools:
+            payload["tools"] = tools
+
+        try:
+            response = await self.client.post(self.endpoint, json=payload)
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPStatusError as e:
+            # If tools caused the error (400), retry without tools
+            if e.response.status_code == 400 and tools:
+                payload.pop("tools", None)
+                response = await self.client.post(self.endpoint, json=payload)
+                response.raise_for_status()
+                result = response.json()
+                # Mark that tools aren't supported
+                result["_tools_unsupported"] = True
+                return result
+            raise
 
     async def close(self):
         """Close the HTTP client."""

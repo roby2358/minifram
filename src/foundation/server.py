@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from src.foundation.state import ConversationStore
 from src.models.llm_client import LLMClient
+from src.tools.tool_manager import ToolManager
 
 
 # Load environment variables
@@ -25,6 +26,7 @@ PORT = 8101
 app = FastAPI(title="minifram")
 store = ConversationStore()
 llm: Optional[LLMClient] = None
+tools: Optional[ToolManager] = None
 
 # Static files
 static_dir = Path(__file__).parent / "static"
@@ -33,19 +35,25 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 @app.on_event("startup")
 async def startup():
-    """Initialize LLM client on startup."""
-    global llm
+    """Initialize LLM client and tool manager on startup."""
+    global llm, tools
     llm = LLMClient(endpoint=LLM_ENDPOINT, model=LLM_MODEL)
+    tools = ToolManager()
+    await tools.load_config("mcp_config.json")
+
     print(f"🚀 minifram starting on http://localhost:{PORT}")
     print(f"📡 LLM endpoint: {LLM_ENDPOINT}")
     print(f"🤖 Model: {LLM_MODEL}")
+    print(f"🔧 Tools loaded: {len(tools.get_all_tools())}")
 
 
 @app.on_event("shutdown")
 async def shutdown():
-    """Close LLM client on shutdown."""
+    """Close LLM client and tool manager on shutdown."""
     if llm:
         await llm.close()
+    if tools:
+        await tools.close_all()
 
 
 @app.get("/")
@@ -62,9 +70,14 @@ async def health():
 
 @app.get("/api/tools")
 async def get_tools():
-    """Get MCP tool status (placeholder for Phase 2)."""
-    # Phase 2: Load from mcp_config.json and check status
-    return {"tools": []}
+    """Get MCP tool status."""
+    if not tools:
+        return {"servers": [], "tools": []}
+
+    return {
+        "servers": tools.get_server_status(),
+        "tools": tools.get_all_tools()
+    }
 
 
 @app.websocket("/ws/{conversation_id}")
@@ -110,25 +123,108 @@ async def websocket_endpoint(websocket: WebSocket, conversation_id: str):
                     "content": user_content
                 })
 
-                # Get LLM response
+                # Send loading indicator
+                await websocket.send_json({
+                    "type": "loading",
+                    "content": "Waiting for model response..."
+                })
+
+                # Get LLM response with tool support
                 try:
+                    # Build tool definitions for LLM
+                    available_tools = []
+                    if tools:
+                        for tool in tools.get_all_tools():
+                            available_tools.append({
+                                "type": "function",
+                                "function": {
+                                    "name": tool["name"],
+                                    "description": tool["description"],
+                                    "parameters": tool["inputSchema"]
+                                }
+                            })
+
                     llm_messages = conversation.to_llm_format()
-                    response = await llm.chat(llm_messages)
 
-                    # Extract assistant message
-                    assistant_content = response["choices"][0]["message"]["content"]
+                    # Try with tools first if available
+                    if available_tools:
+                        response = await llm.chat(llm_messages, available_tools)
 
-                    # Add assistant message to conversation
-                    conversation.add_message("assistant", assistant_content)
+                        # If model doesn't support tools, warn once
+                        if response.get("_tools_unsupported"):
+                            await websocket.send_json({
+                                "type": "system",
+                                "content": f"Note: {LLM_MODEL} doesn't support tool calling. Tools won't be used."
+                            })
+                            # Don't try tools again for this model
+                            available_tools = []
+                    else:
+                        response = await llm.chat(llm_messages)
 
-                    # Send assistant response
+                    message = response["choices"][0]["message"]
+
+                    # Check if LLM wants to call a tool
+                    tool_calls = message.get("tool_calls", [])
+
+                    if tool_calls and tools:
+                        # Execute tool calls
+                        for tool_call in tool_calls:
+                            func = tool_call["function"]
+                            tool_name = func["name"]
+                            tool_args = json.loads(func["arguments"]) if isinstance(func["arguments"], str) else func["arguments"]
+
+                            # Format and send tool call display
+                            tool_display = tools.format_tool_call(tool_name, tool_args)
+                            await websocket.send_json({
+                                "type": "message",
+                                "role": "tool",
+                                "content": "",
+                                "tool_call": tool_display
+                            })
+
+                            # Execute the tool
+                            try:
+                                tool_result = await tools.call_tool(tool_name, tool_args)
+
+                                # Add tool result to conversation
+                                conversation.add_message("tool", tool_result)
+
+                                # Continue conversation with tool result
+                                llm_messages = conversation.to_llm_format()
+                                response = await llm.chat(llm_messages)
+                                message = response["choices"][0]["message"]
+
+                            except Exception as e:
+                                await websocket.send_json({
+                                    "type": "error",
+                                    "content": f"Tool error: {str(e)}"
+                                })
+                                continue
+
+                    # Clear loading indicator
                     await websocket.send_json({
-                        "type": "message",
-                        "role": "assistant",
-                        "content": assistant_content
+                        "type": "loading_done"
                     })
 
+                    # Extract and send final assistant message
+                    assistant_content = message.get("content", "")
+
+                    if assistant_content:
+                        # Add assistant message to conversation
+                        conversation.add_message("assistant", assistant_content)
+
+                        # Send assistant response
+                        await websocket.send_json({
+                            "type": "message",
+                            "role": "assistant",
+                            "content": assistant_content
+                        })
+
                 except Exception as e:
+                    # Clear loading indicator on error
+                    await websocket.send_json({
+                        "type": "loading_done"
+                    })
                     # Send error message
                     await websocket.send_json({
                         "type": "error",

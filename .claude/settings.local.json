@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "WebSearch",
-      "WebFetch(domain:apidog.com)"
+      "WebFetch(domain:apidog.com)",
+      "Bash(chmod:*)",
+      "Bash(python3:*)",
+      "Bash(wget:*)",
+      "Bash(convert:*)",
+      "Bash(ls:*)",
+      "Bash(ollama list:*)",
+      "Bash(ollama search:*)"
     ]
   }
 }

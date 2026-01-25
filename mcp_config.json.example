@@ -1,0 +1,10 @@
+{
+  "hello": {
+    "command": "python",
+    "args": ["src/mcp/hello_server.py"]
+  },
+  "filesystem": {
+    "command": "mcp-server-filesystem",
+    "args": ["--root", "."]
+  }
+}

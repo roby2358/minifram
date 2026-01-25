@@ -28,13 +28,17 @@ class ChatClient {
             e.target.style.height = e.target.scrollHeight + 'px';
         });
 
-        // Tools button
-        const toolsBtn = document.getElementById('toolsBtn');
-        const toolsPanel = document.getElementById('toolsPanel');
+        // Navigation
+        const navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(item => {
+            item.addEventListener('click', () => {
+                const view = item.dataset.view;
+                this.switchView(view);
 
-        toolsBtn.addEventListener('click', () => {
-            const isVisible = toolsPanel.style.display !== 'none';
-            toolsPanel.style.display = isVisible ? 'none' : 'block';
+                // Update active state
+                navItems.forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+            });
         });
 
         // New agent button (Phase 3)
@@ -42,6 +46,20 @@ class ChatClient {
         newAgentBtn.addEventListener('click', () => {
             alert('Agent spawning coming in Phase 3');
         });
+    }
+
+    switchView(view) {
+        // Hide all views
+        document.getElementById('chatView').style.display = 'none';
+        document.getElementById('toolsView').style.display = 'none';
+
+        // Show selected view
+        if (view === 'chat') {
+            document.getElementById('chatView').style.display = 'flex';
+        } else if (view === 'tools') {
+            document.getElementById('toolsView').style.display = 'block';
+            this.loadToolsView();
+        }
     }
 
     connect(conversationId) {
@@ -81,6 +99,12 @@ class ChatClient {
             case 'error':
                 this.addMessage('error', data.content);
                 break;
+            case 'loading':
+                this.showLoading(data.content);
+                break;
+            case 'loading_done':
+                this.hideLoading();
+                break;
         }
     }
 
@@ -107,6 +131,33 @@ class ChatClient {
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
+    showLoading(message) {
+        const messagesDiv = document.getElementById('messages');
+
+        // Remove any existing loading indicator
+        const existing = messagesDiv.querySelector('.message.loading');
+        if (existing) {
+            existing.remove();
+        }
+
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'message loading';
+        loadingDiv.innerHTML = `<span class="loading-dots">${message}</span>`;
+        messagesDiv.appendChild(loadingDiv);
+
+        // Auto-scroll to bottom
+        const chatContainer = document.getElementById('chatContainer');
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    hideLoading() {
+        const messagesDiv = document.getElementById('messages');
+        const loadingDiv = messagesDiv.querySelector('.message.loading');
+        if (loadingDiv) {
+            loadingDiv.remove();
+        }
+    }
+
     sendMessage() {
         const input = document.getElementById('messageInput');
         const content = input.value.trim();
@@ -131,22 +182,58 @@ class ChatClient {
     }
 
     async loadTools() {
+        // This is now handled by loadToolsView
+    }
+
+    async loadToolsView() {
         try {
             const response = await fetch('/api/tools');
             const data = await response.json();
 
-            const toolsList = document.getElementById('toolsList');
+            const serversList = document.getElementById('serversList');
+            const toolsDetails = document.getElementById('toolsDetails');
 
-            if (data.tools.length === 0) {
-                toolsList.innerHTML = '<div class="tool-item">No tools configured</div>';
+            // Display servers
+            if (!data.servers || data.servers.length === 0) {
+                serversList.innerHTML = '<div class="loading">No MCP servers configured</div>';
+                toolsDetails.innerHTML = '<div class="loading">No tools available</div>';
                 return;
             }
 
-            toolsList.innerHTML = data.tools.map(tool =>
-                `<div class="tool-item ${tool.status}">${tool.name} (${tool.status})</div>`
-            ).join('');
+            // Render servers
+            const serverItems = data.servers.map(server => {
+                const statusClass = server.status === 'active' ? 'active' : 'broken';
+                const statusIcon = server.status === 'active' ? '✓' : '✗';
+                return `
+                    <div class="server-item ${statusClass}">
+                        <div class="server-name">${statusIcon} ${server.name}</div>
+                        <div class="server-status">${server.tools} tools • ${server.status}</div>
+                    </div>
+                `;
+            }).join('');
+            serversList.innerHTML = serverItems;
+
+            // Render tools
+            if (!data.tools || data.tools.length === 0) {
+                toolsDetails.innerHTML = '<div class="loading">No tools available</div>';
+                return;
+            }
+
+            const toolItems = data.tools.map(tool => {
+                return `
+                    <div class="tool-detail">
+                        <div class="tool-name">${tool.name}</div>
+                        <div class="tool-description">${tool.description}</div>
+                        <div class="tool-server">from ${tool._server}</div>
+                    </div>
+                `;
+            }).join('');
+            toolsDetails.innerHTML = toolItems;
+
         } catch (error) {
             console.error('Failed to load tools:', error);
+            document.getElementById('serversList').innerHTML = '<div class="loading">Failed to load tools</div>';
+            document.getElementById('toolsDetails').innerHTML = '<div class="loading">Failed to load tools</div>';
         }
     }
 }

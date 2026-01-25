@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>minifram</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -12,37 +14,50 @@
         <div class="header">
             <div class="title">minifram</div>
             <div class="controls">
-                <button class="btn-tools" id="toolsBtn">Tools ▼</button>
                 <button class="btn-agent" id="newAgentBtn">+ Agent</button>
             </div>
         </div>
 
-        <!-- Tools panel (hidden by default) -->
-        <div class="tools-panel" id="toolsPanel" style="display: none;">
-            <div class="tools-header">MCP Tools</div>
-            <div class="tools-list" id="toolsList">
-                <div class="tool-item">No tools configured</div>
+        <!-- Navigation -->
+        <div class="nav-bar">
+            <div class="nav-item active" data-view="chat">chat</div>
+            <div class="nav-item" data-view="tools">tools</div>
+        </div>
+
+        <!-- Chat view -->
+        <div class="view-container" id="chatView">
+            <div class="chat-container" id="chatContainer">
+                <div class="messages" id="messages"></div>
+            </div>
+
+            <!-- Input area -->
+            <div class="input-container">
+                <textarea
+                    id="messageInput"
+                    placeholder="Message..."
+                    rows="1"
+                ></textarea>
+                <button id="sendBtn">&gt;</button>
             </div>
         </div>
 
-        <!-- Tabs -->
-        <div class="tabs" id="tabBar">
-            <div class="tab active" data-conversation="chat">Chat</div>
-        </div>
-
-        <!-- Chat area -->
-        <div class="chat-container" id="chatContainer">
-            <div class="messages" id="messages"></div>
-        </div>
-
-        <!-- Input area -->
-        <div class="input-container">
-            <textarea
-                id="messageInput"
-                placeholder="Message..."
-                rows="1"
-            ></textarea>
-            <button id="sendBtn">&gt;</button>
+        <!-- Tools view -->
+        <div class="view-container" id="toolsView" style="display: none;">
+            <div class="tools-content">
+                <h2>MCP Tools</h2>
+                <div class="tools-section">
+                    <h3>Servers</h3>
+                    <div class="servers-list" id="serversList">
+                        <div class="loading">Loading...</div>
+                    </div>
+                </div>
+                <div class="tools-section">
+                    <h3>Available Tools</h3>
+                    <div class="tools-details" id="toolsDetails">
+                        <div class="loading">Loading...</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

@@ -1,6 +1,6 @@
 {
-  "filesystem": {
-    "command": "mcp-server-filesystem",
-    "args": ["--root", "."]
+  "hello": {
+    "command": "python",
+    "args": ["src/mcp/hello_server.py"]
   }
 }

@@ -74,7 +74,7 @@ The agent runs autonomously until it determines the contract is complete.
 ## Development Status
 
 - ✅ Phase 1: Foundation (WebSocket + LLM + UI)
-- ⏳ Phase 2: Tool Integration (MCP)
+- ✅ Phase 2: Tool Integration (MCP)
 - ⏳ Phase 3: Agent System
 
 See `SPEC.md` for full requirements.
