@@ -10,7 +10,7 @@ Provide a lightweight alternative to Claude Code that runs entirely local. Singl
 
 ```
 +----------------------------------------------------------+
-|  minifram                                    [+ Agent]   |
+|  minifram                       [Tools ▼]    [+ Agent]   |
 +----------------------------------------------------------+
 | [Chat] [Agent-1] [Agent-2]                              |
 +----------------------------------------------------------+
@@ -25,7 +25,16 @@ Provide a lightweight alternative to Claude Code that runs entirely local. Singl
 |  [Message input...................................] [>]  |
 +----------------------------------------------------------+
 
-New Agent Tab:
+Tools Panel (dropdown):
++----------------------------------+
+| MCP Tools                        |
++----------------------------------+
+| ✓ filesystem (active)            |
+| ✓ git (active)                   |
+| ✗ browser (broken)               |
++----------------------------------+
+
+New Agent Tab (before start):
 +----------------------------------------------------------+
 |  Agent: code-reviewer                        [x]        |
 +----------------------------------------------------------+
@@ -36,8 +45,20 @@ New Agent Tab:
 |  +----------------------------------------------------+ |
 |                                                          |
 |  [Start Agent]                                          |
-|                                                          |
-|  Agent output appears here after start...               |
++----------------------------------------------------------+
+
+Agent Tab (running):
++----------------------------------------------------------+
+|  Agent: code-reviewer                        [x]        |
++----------------------------------------------------------+
+|  Output:                                     [Running]  |
+|  +----------------------------------------------------+ |
+|  | Reading src/auth.py...                             | |
+|  | [Tool: Read src/auth.py]                           | |
+|  | Checking for SQL injection...                      | |
+|  | [Tool: Grep "SELECT.*%s" --type py]                | |
+|  |                                           (scroll) | |
+|  +----------------------------------------------------+ |
 +----------------------------------------------------------+
 ```
 
@@ -49,70 +70,59 @@ New Agent Tab:
 - The application MUST display user messages, assistant responses, and tool calls
 - The application MUST support multiple concurrent chat tabs
 - Each tab MUST maintain independent conversation history
-- The application MUST persist conversations to SQLite
+- Tool calls MUST be displayed with name and parameters, limited to 80 characters with ellipsis
 
 ### LLM Integration
 
 - The application MUST connect to local LLM via HTTP (GLM or compatible)
 - The application MUST support multi-turn conversations with context
 - The application MUST implement the agentic loop: LLM → tool → LLM
-- The application SHOULD stream responses when the model supports it
 - The model endpoint MUST be configurable
 
 ### MCP Tool Integration
 
 - The application MUST implement the Model Context Protocol for tool calling
-- The application MUST execute tools requested by the LLM
-- The application MUST return tool results to the LLM for continued processing
-- The application MUST display available MCP tools in the UI
-- The application MUST allow configuration of MCP server connections
-- The application SHOULD support multiple concurrent MCP servers
+- The application MUST display a tools panel showing MCP tool status (active/broken)
+- The application MUST load MCP server configuration from `mcp_config.json`
+- The application MUST support multiple concurrent MCP servers
 
 ### Agent Spawning
 
 - The application MUST provide a button to create new agent tabs
 - Each agent tab MUST include a contract textarea for defining objectives
+- The application MUST provide a [Start Agent] button to begin execution
 - The application MUST execute the agent autonomously until contract completion
-- The agent MUST have access to the same tools as the main chat
 - The agent MUST determine when its contract is satisfied
-- The application SHOULD display agent progress and tool usage
-
-### State Management
-
-- The application MUST maintain conversation history in memory during runtime
-- The application MUST load MCP server configurations from `mcp_config.json`
-- Agent output SHOULD be written to files when appropriate
-- The application MAY clear state on restart
+- The application MUST display agent progress in a read-only scrollable textarea
+- The application MUST write agent output to a timestamped log file
 
 ## Non-Functional Requirements
 
 ### Architecture
 
 - The backend MUST be implemented in Python
-- The application SHOULD use FastAPI for HTTP/WebSocket handling
-- The UI MAY be minimal HTML/JS without heavy frameworks
+- The application MUST use FastAPI for HTTP/WebSocket handling
+- The UI MUST be minimal HTML/JS without heavy frameworks
 - The application MUST run entirely on localhost
 - The application MUST start with `uv run go`
 - The application MUST serve the HTML interface on port 8101
 
 ### Performance
 
-- The application SHOULD respond to user input within 100ms
 - Tool execution MUST not block the UI
-- The application SHOULD handle multiple simultaneous agent executions
+- The application MUST handle multiple simultaneous agent executions
 
 ### Configuration
 
-- The application MUST support configuration via environment variables or config file
-- LLM endpoint, model name, and API format MUST be configurable
-- The application MAY provide UI for editing configuration
+- LLM endpoint and model name MUST be configurable via `.env`
+- MCP servers MUST be configurable via `mcp_config.json`
 
 ## Dependencies
 
 **Backend:**
 - Python 3.10+
 - FastAPI for HTTP/WebSocket server
-- httpx or requests for LLM API calls
+- httpx for async LLM API calls
 - MCP Python SDK for protocol implementation
 
 **Frontend:**
@@ -125,23 +135,11 @@ New Agent Tab:
 
 ## Technical Choices
 
-### Python + FastAPI
-Python for rapid iteration and MCP SDK availability. FastAPI provides built-in WebSocket support and async handling. Rust port possible later if performance matters.
-
-### In-Memory State (Phases 1-3)
-No persistence overhead. State lives in Python dicts and lists. Fast iteration, no schema migration headaches. Restart = fresh start.
-
-### Vanilla JS
-No build step, no framework bloat. WebSocket and DOM APIs are enough for the simple UI requirements.
+### In-Memory State
+No persistence overhead. Fast iteration, no schema migration. Restart = fresh start. Exercise left to the reader to add SQLite if needed.
 
 ### Local LLM (GLM)
 Full control, no API costs, no rate limits. OpenAI-compatible format makes integration straightforward.
-
-### MCP Python SDK
-Official protocol implementation. Handles tool schema translation and message format complexity.
-
-### uv
-Fast package management, simpler than pip+venv. Lock file ensures reproducible builds. Script aliases in `pyproject.toml` provide clean entry point (`uv run go`).
 
 ## Implementation Notes
 
@@ -163,11 +161,7 @@ All messages (user, assistant, tool calls, tool results) flow through WebSocket 
 
 ### Agent Isolation
 
-Each agent tab runs in an independent context with its own conversation history in memory. Agents can run concurrently without interference.
-
-### Flat File Storage
-
-MCP configuration lives in `mcp_config.json`. Environment config in `.env`. Agent outputs written to files as needed. No database schemas to maintain.
+Each agent tab runs in an independent context with its own conversation history. Agents can run concurrently without interference.
 
 ## Error Handling
 
@@ -186,23 +180,20 @@ The application MUST handle these error conditions:
 ### Phase 1: Foundation
 - WebSocket chat server
 - In-memory conversation storage
-- Basic LLM HTTP client
+- httpx LLM HTTP client
 - Simple HTML/JS UI
+- Tool panel with status display
 
 ### Phase 2: Tool Integration
 - MCP protocol implementation
 - Tool execution pipeline
-- Tool display in UI
+- Tool display in chat (80 char limit)
 - MCP server configuration from JSON file
 
 ### Phase 3: Agent System
 - Agent tab creation
-- Contract interface
-- Autonomous execution loop
+- Contract textarea interface
+- [Start Agent] button and execution flow
+- Autonomous execution loop with read-only output display
+- Agent log file writing
 - Completion detection
-
-### Phase 4: Persistence (Optional)
-- SQLite conversation history
-- Session resumption
-- Agent contract/result storage
-- Conversation search/replay
