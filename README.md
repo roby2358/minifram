@@ -73,9 +73,11 @@ The agent runs autonomously until it determines the contract is complete.
 
 ## Development Status
 
-Work in progress. See `SPEC.md` for full requirements.
+- ✅ Phase 1: Foundation (WebSocket + LLM + UI)
+- ⏳ Phase 2: Tool Integration (MCP)
+- ⏳ Phase 3: Agent System
 
-Current phase: Foundation (WebSocket + LLM + SQLite)
+See `SPEC.md` for full requirements.
 
 ## License
 

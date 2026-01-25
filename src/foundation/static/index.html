@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>minifram</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="title">minifram</div>
+            <div class="controls">
+                <button class="btn-tools" id="toolsBtn">Tools ▼</button>
+                <button class="btn-agent" id="newAgentBtn">+ Agent</button>
+            </div>
+        </div>
+
+        <!-- Tools panel (hidden by default) -->
+        <div class="tools-panel" id="toolsPanel" style="display: none;">
+            <div class="tools-header">MCP Tools</div>
+            <div class="tools-list" id="toolsList">
+                <div class="tool-item">No tools configured</div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs" id="tabBar">
+            <div class="tab active" data-conversation="chat">Chat</div>
+        </div>
+
+        <!-- Chat area -->
+        <div class="chat-container" id="chatContainer">
+            <div class="messages" id="messages"></div>
+        </div>
+
+        <!-- Input area -->
+        <div class="input-container">
+            <textarea
+                id="messageInput"
+                placeholder="Message..."
+                rows="1"
+            ></textarea>
+            <button id="sendBtn">&gt;</button>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

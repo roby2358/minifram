@@ -1,0 +1,6 @@
+{
+  "filesystem": {
+    "command": "mcp-server-filesystem",
+    "args": ["--root", "."]
+  }
+}
