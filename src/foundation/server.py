@@ -135,6 +135,12 @@ async def process_tool_calls(
 ) -> str:
     """Process tool calls in a loop until model stops requesting them.
 
+    Agentic loop pattern:
+    1. Display LLM response
+    2. Check for tool_calls
+    3. Execute tools and send results back to LLM
+    4. Repeat until LLM responds without tool_calls
+
     Returns:
         Final assistant_content after all tool calls complete
     """
