@@ -146,20 +146,8 @@ async def agent_stop(agent_id: str) -> dict:
     }
 
 
-@mcp.tool()
-async def agent_complete(agent_id: str, summary: str, payload: str | None = None) -> dict:
-    """Signal that an agent has completed its contract.
-
-    Called by the agent itself when the contract objective is fulfilled.
-
-    Args:
-        agent_id: The ID of the completing agent.
-        summary: A brief description of the outcome.
-        payload: Optional work product data.
-
-    Returns:
-        Status confirmation with timestamps.
-    """
+async def _do_agent_complete(agent_id: str, summary: str, payload: str | None = None) -> dict:
+    """Core implementation of agent_complete."""
     if not agent_store:
         return {"error": "Agent store not initialized"}
 
@@ -190,3 +178,24 @@ async def agent_complete(agent_id: str, summary: str, payload: str | None = None
         "started_at": _format_timestamp(agent.started_at),
         "completed_at": _format_timestamp(agent.completed_at),
     }
+
+
+# Export for internal tool registration
+do_agent_complete = _do_agent_complete
+
+
+@mcp.tool()
+async def agent_complete(agent_id: str, summary: str, payload: str | None = None) -> dict:
+    """Signal that an agent has completed its contract.
+
+    Called by the agent itself when the contract objective is fulfilled.
+
+    Args:
+        agent_id: The ID of the completing agent.
+        summary: A brief description of the outcome.
+        payload: Optional work product data.
+
+    Returns:
+        Status confirmation with timestamps.
+    """
+    return await _do_agent_complete(agent_id, summary, payload)
