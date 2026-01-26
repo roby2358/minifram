@@ -2,7 +2,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from src.foundation.state import Conversation
 
@@ -21,7 +20,7 @@ class AgentOutput:
     type: str  # 'assistant', 'tool', 'error', 'system'
     content: str
     timestamp: datetime = field(default_factory=datetime.now)
-    tool_call: Optional[str] = None
+    tool_call: str | None = None
 
 
 @dataclass
@@ -31,18 +30,18 @@ class Agent:
     contract: str = ""
     status: AgentStatus = AgentStatus.READY
     output: list[AgentOutput] = field(default_factory=list)
-    conversation: Optional[Conversation] = None
+    conversation: Conversation | None = None
     created_at: datetime = field(default_factory=datetime.now)
     stop_requested: bool = False
     # MCP-related fields
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    stopped_at: Optional[datetime] = None
-    summary: Optional[str] = None
-    payload: Optional[bytes] = None  # gzip-compressed
-    payload_size: Optional[int] = None  # original uncompressed size
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    stopped_at: datetime | None = None
+    summary: str | None = None
+    payload: bytes | None = None  # gzip-compressed
+    payload_size: int | None = None  # original uncompressed size
 
-    def add_output(self, type: str, content: str, tool_call: Optional[str] = None):
+    def add_output(self, type: str, content: str, tool_call: str | None = None):
         """Add an output entry."""
         entry = AgentOutput(type=type, content=content, tool_call=tool_call)
         self.output.append(entry)
@@ -75,7 +74,7 @@ class AgentStore:
         self.agents[agent_id] = agent
         return agent
 
-    def get(self, agent_id: str) -> Optional[Agent]:
+    def get(self, agent_id: str) -> Agent | None:
         """Get an agent by ID."""
         return self.agents.get(agent_id)
 

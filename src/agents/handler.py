@@ -1,10 +1,13 @@
 """Agent execution handler for autonomous contract completion."""
 import json
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Protocol
 
 from fastapi import WebSocket
+
+logger = logging.getLogger(__name__)
 
 from src.agents.state import Agent, AgentStatus
 from src.foundation.state import Conversation
@@ -188,6 +191,7 @@ async def execute_tool_call(
     """Execute a single tool call and return the result."""
     tool_name, tool_args = parse_tool_call(tool_call)
     tool_display = tools.format_tool_call(tool_name, tool_args)
+    logger.debug("Agent %s calling tool: %s", agent.id, tool_name)
     await emitter.output(agent, "tool", "", tool_call=tool_display)
 
     try:
@@ -195,6 +199,7 @@ async def execute_tool_call(
         await emitter.output(agent, "system", f"→ {truncate_result(result)}")
         return result
     except Exception as e:
+        logger.warning("Agent %s tool error: %s", agent.id, e)
         error_msg = f"Tool error: {str(e)}"
         await emitter.output(agent, "error", error_msg)
         return f"Error: {str(e)}"
@@ -280,6 +285,7 @@ async def execute_agent_loop_core(
     use_mcp_prompt: bool
 ):
     """Core agent loop execution used by both WebSocket and headless modes."""
+    logger.info("Agent %s starting execution", agent.id)
     init_agent_conversation(agent, use_mcp_prompt=use_mcp_prompt)
     await emitter.status(agent, AgentStatus.RUNNING)
     available_tools = build_tool_definitions(tools) if tools else []
@@ -287,9 +293,11 @@ async def execute_agent_loop_core(
     try:
         await run_agent_loop(emitter, agent, llm, tools, available_tools)
     except Exception as e:
+        logger.error("Agent %s error: %s", agent.id, e)
         await emitter.output(agent, "error", f"Agent error: {str(e)}")
         await emitter.status(agent, AgentStatus.STOPPED)
 
+    logger.info("Agent %s finished with status: %s", agent.id, agent.status.value)
     await write_agent_log(agent)
 
 

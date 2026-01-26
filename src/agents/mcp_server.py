@@ -1,19 +1,22 @@
 """Agent MCP server exposing lifecycle tools."""
 import asyncio
 import gzip
+import logging
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 
 from fastmcp import FastMCP
 
 from src.agents.state import Agent, AgentStatus, AgentStore
 
+logger = logging.getLogger(__name__)
 
 # Create the MCP server instance
 mcp = FastMCP("minifram-agents")
 
 # These will be set by server.py on startup
-agent_store: AgentStore = None
-start_agent_callback = None  # async function to start agent execution
+agent_store: AgentStore | None = None
+start_agent_callback: Callable[[Agent], Awaitable[None]] | None = None
 
 
 def init_mcp(store: AgentStore, start_callback):
@@ -73,6 +76,8 @@ async def agent_start(contract: str) -> dict:
     agent = agent_store.create()
     agent.contract = contract
     agent.started_at = datetime.now()
+
+    logger.info("Starting agent %s via MCP", agent.id)
 
     # Start agent execution in background
     if start_agent_callback:
@@ -135,6 +140,7 @@ async def agent_stop(agent_id: str) -> dict:
             "completed_at": _format_timestamp(agent.completed_at),
         }
 
+    logger.info("Stopping agent %s via MCP", agent_id)
     agent.request_stop()
     agent.stopped_at = datetime.now()
     agent.status = AgentStatus.STOPPED
@@ -163,6 +169,7 @@ async def _do_agent_complete(agent_id: str, summary: str, payload: str | None = 
             "completed_at": _format_timestamp(agent.completed_at),
         }
 
+    logger.info("Agent %s completed via MCP: %s", agent_id, summary[:50] if summary else "")
     agent.status = AgentStatus.COMPLETED
     agent.completed_at = datetime.now()
     agent.summary = summary
