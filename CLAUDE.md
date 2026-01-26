@@ -80,7 +80,7 @@ Client → Server:
 
 Server → Client:
 - `{type: "message", role: "user|assistant|system|tool", content: "..."}` - Display message
-- `{type: "reasoning", content: "..."}` - Display in reasoning panel (from `message.reasoning` field or `<think>` tags)
+- `{type: "reasoning", content: "..."}` - Display in reasoning panel (from `message.reasoning` field or `<think>`/`<thinking>` tags)
 - `{type: "loading"}` / `{type: "loading_done"}` - Loading indicator
 - `{type: "error", content: "..."}` - Error display
 
@@ -124,10 +124,11 @@ Models must provide OpenAI-compatible `/v1/chat/completions` endpoint.
 
 **Tool calling graceful degradation:** If the LLM returns 400 on tool call request, the system automatically retries without tools and warns the user once. This handles models that don't support OpenAI tool calling format.
 
-**Reasoning extraction:** Two methods supported:
+**Reasoning extraction:** Three methods supported:
 1. `message.reasoning` field (GLM-4.7-flash)
-2. `<think>...</think>` tags in content (other models)
+2. `<think>...</think>` tags in content
+3. `<thinking>...</thinking>` tags in content
 
-Both are extracted and displayed in the reasoning panel.
+All are extracted and displayed in the reasoning panel.
 
 **Conversation history:** Stored in-memory using ConversationStore. Each conversation has a unique ID. Messages include role, content, timestamp, and optional tool_call data for reconstruction.
