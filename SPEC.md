@@ -34,9 +34,9 @@ Tools Panel (dropdown):
 | ✗ browser (broken)               |
 +----------------------------------+
 
-New Agent Tab (before start):
+Agent Tab (before start):
 +----------------------------------------------------------+
-|  Agent: code-reviewer                        [x]        |
+|  Agent-1                                         [x]    |
 +----------------------------------------------------------+
 |  Contract:                                              |
 |  +----------------------------------------------------+ |
@@ -44,21 +44,42 @@ New Agent Tab (before start):
 |  | Focus on SQL injection and XSS vulnerabilities.    | |
 |  +----------------------------------------------------+ |
 |                                                          |
-|  [Start Agent]                                          |
+|  [Start]                                                |
 +----------------------------------------------------------+
 
 Agent Tab (running):
 +----------------------------------------------------------+
-|  Agent: code-reviewer                        [x]        |
+|  Agent-1                                         [x]    |
 +----------------------------------------------------------+
-|  Output:                                     [Running]  |
+|  Contract: Review all Python files for security...      |
+|                                                          |
 |  +----------------------------------------------------+ |
 |  | Reading src/auth.py...                             | |
 |  | [Tool: Read src/auth.py]                           | |
 |  | Checking for SQL injection...                      | |
 |  | [Tool: Grep "SELECT.*%s" --type py]                | |
+|  | Found 2 potential issues...                        | |
 |  |                                           (scroll) | |
 |  +----------------------------------------------------+ |
+|                                                          |
+|  [Stop]                                      [Running]  |
++----------------------------------------------------------+
+
+Agent Tab (stopped/completed):
++----------------------------------------------------------+
+|  Agent-1                                         [x]    |
++----------------------------------------------------------+
+|  Contract: Review all Python files for security...      |
+|                                                          |
+|  +----------------------------------------------------+ |
+|  | ...                                                | |
+|  | Analysis complete. Found 2 vulnerabilities:        | |
+|  | 1. SQL injection in db.py:42                       | |
+|  | 2. XSS in templates/user.html:15                   | |
+|  |                                           (scroll) | |
+|  +----------------------------------------------------+ |
+|                                                          |
+|  [Restart]                                  [Completed] |
 +----------------------------------------------------------+
 ```
 
@@ -90,12 +111,17 @@ Agent Tab (running):
 
 ### Agent Spawning
 
-- The application MUST provide a button to create new agent tabs
-- Each agent tab MUST include a contract textarea for defining objectives
-- The application MUST provide a [Start Agent] button to begin execution
-- The application MUST execute the agent autonomously until contract completion
-- The agent MUST determine when its contract is satisfied
-- The application MUST display agent progress in a read-only scrollable textarea
+- The application MUST provide a [+ Agent] button in the header to create new agent tabs
+- Clicking [+ Agent] MUST open a new tab with an editable contract textarea
+- The agent tab MUST provide a [Start] button to begin autonomous execution
+- The agent tab MUST provide a [Stop] button to halt LLM communication mid-execution
+- Stopping an agent MUST prevent further LLM requests but preserve output history
+- The application MUST execute the agent autonomously until contract completion or stop
+- The agent MUST determine when its contract is satisfied via LLM self-evaluation
+- The application MUST display agent progress in a scrollable output area
+- The output area MUST auto-scroll to show new content as it arrives
+- The application MUST show agent status: Ready, Running, Stopped, or Completed
+- After completion or stop, the agent tab MUST provide a [Restart] button
 - The application MUST write agent output to a timestamped log file
 
 ## Non-Functional Requirements
@@ -165,6 +191,16 @@ All messages (user, assistant, tool calls, tool results) flow through WebSocket 
 
 Each agent tab runs in an independent context with its own conversation history. Agents can run concurrently without interference.
 
+### Agent State Machine
+
+Agents transition through states:
+- **Ready**: Contract entered, waiting for [Start]
+- **Running**: Autonomous execution in progress, [Stop] available
+- **Stopped**: User halted execution, [Restart] available
+- **Completed**: Contract satisfied, [Restart] available
+
+The [Stop] button sets a flag that prevents the next LLM request. Any in-flight request completes normally, but no new requests are made.
+
 ## Error Handling
 
 The application MUST handle these error conditions:
@@ -176,6 +212,7 @@ The application MUST handle these error conditions:
 - File write failures (config, agent output)
 - WebSocket disconnection
 - Malformed messages from client or LLM
+- Agent stop requested during LLM request (graceful abort)
 
 ## Development Phases
 
@@ -193,9 +230,11 @@ The application MUST handle these error conditions:
 - MCP server configuration from JSON file
 
 ### Phase 3: Agent System
-- Agent tab creation
-- Contract textarea interface
-- [Start Agent] button and execution flow
-- Autonomous execution loop with read-only output display
+- Agent tab creation via [+ Agent] button
+- Contract textarea interface with [Start] button
+- [Stop] button to halt LLM communication
+- [Restart] button after stop/completion
+- Autonomous execution loop with scrollable output display
+- Agent status display (Ready/Running/Stopped/Completed)
 - Agent log file writing
-- Completion detection
+- Completion detection via LLM self-evaluation
