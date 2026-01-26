@@ -105,7 +105,8 @@ LLM_MODEL=glm-4.7-flash
 
 - ✅ Phase 1: Foundation (WebSocket + LLM + UI)
 - ✅ Phase 2: Tool Integration (MCP)
-- ⏳ Phase 3: Agent System (autonomous agents with contracts)
+- ✅ Phase 3: Agent System (autonomous agents with contracts)
+- ⏳ Phase 4: Agent MCP Server (see `SPEC_AGENT_MCP.md`)
 
 See `SPEC.md` for complete functional requirements.
 

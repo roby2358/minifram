@@ -238,3 +238,9 @@ The application MUST handle these error conditions:
 - Agent status display (Ready/Running/Stopped/Completed)
 - Agent log file writing
 - Completion detection via LLM self-evaluation
+
+### Phase 4: Agent MCP Server
+See `SPEC_AGENT_MCP.md`. Exposes agent lifecycle via MCP tools:
+- `agent_start`, `agent_status`, `agent_stop`, `agent_complete`
+- Enables external clients (Claude Desktop, Claude Code) to spawn and monitor agents
+- HTTP endpoint for payload retrieval
