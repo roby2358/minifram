@@ -7,7 +7,7 @@ Minimal agent framework for local LLM interaction.
 - Chat with local models (GLM, etc.) via HTTP
 - Execute tools through Model Context Protocol (MCP)
 - Spawn autonomous agents with text-based contracts
-- Persist conversations in SQLite
+- Expose agent lifecycle via MCP for external orchestration
 
 ## Why
 
@@ -18,7 +18,7 @@ Claude Code is powerful but requires Anthropic API. This runs entirely local wit
 ```
 Browser (WebSocket) ↔ FastAPI Server ↔ Local LLM (HTTP)
                            ↓
-                      SQLite + MCP Tools
+                      MCP Tools (stdio)
 ```
 
 ## Quick Start
@@ -71,11 +71,23 @@ Create a summary report with findings.
 
 The agent runs autonomously until it determines the contract is complete.
 
+## Agent MCP Server
+
+Agents can also be started and managed via MCP tools, allowing external orchestrators (like Claude Code) to spawn agents:
+
+- `agent_start` - Start an agent with a contract
+- `agent_status` - Check agent status
+- `agent_stop` - Stop a running agent
+- `agent_complete` - Signal contract completion with optional payload
+
+See `SPEC_AGENT_MCP.md` for details.
+
 ## Development Status
 
 - ✅ Phase 1: Foundation (WebSocket + LLM + UI)
 - ✅ Phase 2: Tool Integration (MCP)
-- ⏳ Phase 3: Agent System
+- ✅ Phase 3: Agent System
+- ✅ Phase 4: Agent MCP Server
 
 See `SPEC.md` for full requirements.
 
