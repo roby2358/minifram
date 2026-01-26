@@ -1,7 +1,7 @@
 """LLM client for local model interaction."""
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
@@ -39,7 +39,7 @@ class LLMClient:
     async def chat(
         self,
         messages: list[dict[str, str]],
-        tools: Optional[list[dict]] = None
+        tools: list[dict] | None = None
     ) -> dict:
         """Send chat completion request to local LLM.
 

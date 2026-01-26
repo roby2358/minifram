@@ -2,7 +2,6 @@
 import asyncio
 import json
 import logging
-from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -13,9 +12,9 @@ class MCPClient:
     def __init__(self, command: str, args: list[str]):
         self.command = command
         self.args = args
-        self.process: Optional[asyncio.subprocess.Process] = None
+        self.process: asyncio.subprocess.Process | None = None
         self.request_id = 0
-        self.server_info: Optional[dict] = None
+        self.server_info: dict | None = None
         self.tools: list[dict] = []
 
     async def start(self):
@@ -40,7 +39,7 @@ class MCPClient:
         except Exception as e:
             raise RuntimeError(f"Failed to start MCP server: {e}")
 
-    async def _send_request(self, method: str, params: Optional[dict] = None) -> dict:
+    async def _send_request(self, method: str, params: dict | None = None) -> dict:
         """Send JSON-RPC request to server."""
         if not self.process or not self.process.stdin:
             raise RuntimeError("MCP server not started")
