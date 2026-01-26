@@ -121,7 +121,7 @@ class BlackjackGame:
 
         return self.format_state()
 
-    def stay(self) -> str:
+    def stand(self) -> str:
         """Reveal dealer's hand and play out dealer's turn."""
         # Dealer draws until reaching 17 or higher
         while self.calculate_hand_value(self.dealer_hand) < 17:
@@ -195,7 +195,7 @@ def get_tool_definitions() -> list[dict]:
             }
         },
         {
-            "name": "blackjack_stay",
+            "name": "blackjack_stand",
             "description": "Player stands. Server reveals and plays dealer hand to 17+, determines winner.",
             "inputSchema": {
                 "type": "object",
@@ -253,8 +253,8 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
                 result_text = game.deal()
             elif tool_name == "blackjack_hit":
                 result_text = game.hit()
-            elif tool_name == "blackjack_stay":
-                result_text = game.stay()
+            elif tool_name == "blackjack_stand":
+                result_text = game.stand()
             else:
                 return build_error_response(
                     request_id, -32601, f"Unknown tool: {tool_name}"

@@ -42,7 +42,7 @@ The server MUST provide three tools via MCP `tools/list`:
 - If the player's hand total is 21 or less, the server MUST return the updated game state
 - The server MUST allow multiple sequential calls to `blackjack_hit`
 
-#### blackjack_stay
+#### blackjack_stand
 
 - The server MUST reveal the dealer's hidden card
 - The dealer MUST draw cards until reaching 17 or higher
@@ -95,7 +95,7 @@ Aces are automatically valued optimally. When calculating hand totals, the serve
 
 ### Dealer Behavior
 
-The dealer follows standard casino rules: draw until reaching 17 or higher, then stop. The dealer reveals the hidden card only when the player calls `blackjack_stay`.
+The dealer follows standard casino rules: draw until reaching 17 or higher, then stop. The dealer reveals the hidden card only when the player calls `blackjack_stand`.
 
 ### State Persistence
 
