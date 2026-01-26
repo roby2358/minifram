@@ -21,22 +21,57 @@ def extract_reasoning_field(message: dict) -> str | None:
 
 
 def extract_think_tags(content: str) -> tuple[str | None, str]:
-    """Extract <think> tags from content and return (reasoning, cleaned_content).
+    """Extract <think>/<thinking> tags from content and return (reasoning, cleaned_content).
+
+    Handles both <think>...</think> and <thinking>...</thinking> tag variants.
+    Also handles unclosed tags (extracts content after opening tag to end).
 
     Returns:
         (reasoning, cleaned_content) where reasoning is extracted thinking or None,
-        and cleaned_content is the content with <think> tags removed.
+        and cleaned_content is the content with think tags removed.
     """
-    if not content or "<think>" not in content:
+    if not content:
         return None, content
 
-    think_matches = re.findall(r'<think>(.*?)</think>', content, re.DOTALL)
-    if not think_matches:
+    # Check if any think tags (opening or closing) are present
+    has_tags = any(tag in content for tag in [
+        "<think>", "</think>", "<thinking>", "</thinking>"
+    ])
+    if not has_tags:
         return None, content
 
-    reasoning = "\n\n".join(think_matches)
-    cleaned_content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
-    return reasoning, cleaned_content
+    all_reasoning = []
+    cleaned_content = content
+
+    # Process both tag variants
+    for tag in ["thinking", "think"]:
+        open_tag = f"<{tag}>"
+        close_tag = f"</{tag}>"
+
+        # Extract complete tag pairs
+        pattern = rf'<{tag}>(.*?)</{tag}>'
+        matches = re.findall(pattern, cleaned_content, re.DOTALL)
+        all_reasoning.extend(matches)
+
+        # Remove complete tag pairs
+        cleaned_content = re.sub(pattern, '', cleaned_content, flags=re.DOTALL)
+
+        # Handle unclosed tags - extract content from opening tag to end
+        if open_tag in cleaned_content:
+            unclosed_pattern = rf'<{tag}>(.*)$'
+            unclosed_match = re.search(unclosed_pattern, cleaned_content, re.DOTALL)
+            if unclosed_match:
+                all_reasoning.append(unclosed_match.group(1))
+                cleaned_content = re.sub(unclosed_pattern, '', cleaned_content, flags=re.DOTALL)
+
+        # Remove any stray closing tags
+        cleaned_content = cleaned_content.replace(close_tag, '')
+
+    if not all_reasoning:
+        return None, cleaned_content.strip()
+
+    reasoning = "\n\n".join(r.strip() for r in all_reasoning if r.strip())
+    return reasoning if reasoning else None, cleaned_content.strip()
 
 
 def build_tool_definitions(tools: ToolManager) -> list[dict]:
