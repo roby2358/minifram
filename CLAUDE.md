@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Always confirm with the user before running `git commit` or `git push`.**
+
 ## Quick Start
 
 ```bash
