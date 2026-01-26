@@ -16,6 +16,7 @@ class BlackjackGame:
         self.dealer_hand: list[str] = []
         self.player_hand: list[str] = []
         self.dealer_hidden_card: str | None = None
+        self.hand_in_play: bool = False
 
     def draw_card(self) -> str:
         """Draw a random card from the deck."""
@@ -94,6 +95,7 @@ class BlackjackGame:
         self.dealer_hand = []
         self.player_hand = []
         self.dealer_hidden_card = None
+        self.hand_in_play = True
 
         # Deal two cards to dealer
         self.dealer_hand.append(self.draw_card())
@@ -107,22 +109,32 @@ class BlackjackGame:
         # Check for immediate wins
         win_message = self.check_immediate_win()
         if win_message:
+            self.hand_in_play = False
             return self.format_state(reveal_dealer=True) + win_message
 
-        return self.format_state()
+        return self.format_state() + "\nCall blackjack_hit or blackjack_stand to continue."
 
     def hit(self) -> str:
         """Deal one additional card to the player."""
+        if not self.hand_in_play:
+            return "No hand in progress. Call blackjack_deal to start a new hand."
+
         self.player_hand.append(self.draw_card())
         player_value = self.calculate_hand_value(self.player_hand)
 
         if player_value > 21:
+            self.hand_in_play = False
             return self.format_state(reveal_dealer=True) + "\nBust! Dealer wins!"
 
-        return self.format_state()
+        return self.format_state() + "\nCall blackjack_hit or blackjack_stand to continue."
 
     def stand(self) -> str:
         """Reveal dealer's hand and play out dealer's turn."""
+        if not self.hand_in_play:
+            return "No hand in progress. Call blackjack_deal to start a new hand."
+
+        self.hand_in_play = False
+
         # Dealer draws until reaching 17 or higher
         while self.calculate_hand_value(self.dealer_hand) < 17:
             self.dealer_hand.append(self.draw_card())
@@ -178,7 +190,7 @@ def get_tool_definitions() -> list[dict]:
     return [
         {
             "name": "blackjack_deal",
-            "description": "Server is dealer. Start new hand: deals 2 cards each, first dealer card hidden.",
+            "description": "YOU are the player. Start new hand - MUST call this tool to get cards.",
             "inputSchema": {
                 "type": "object",
                 "properties": {},
@@ -187,7 +199,7 @@ def get_tool_definitions() -> list[dict]:
         },
         {
             "name": "blackjack_hit",
-            "description": "Server deals one card to player. Call this tool for each hit - don't simulate.",
+            "description": "Request another card. MUST call this tool - don't just say 'hit'.",
             "inputSchema": {
                 "type": "object",
                 "properties": {},
@@ -196,7 +208,7 @@ def get_tool_definitions() -> list[dict]:
         },
         {
             "name": "blackjack_stand",
-            "description": "Player stands. Server reveals and plays dealer hand to 17+, determines winner.",
+            "description": "Keep current hand. MUST call this tool - don't just say 'stand'.",
             "inputSchema": {
                 "type": "object",
                 "properties": {},
