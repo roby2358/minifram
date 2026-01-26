@@ -20,8 +20,10 @@
 
         <!-- Navigation -->
         <div class="nav-bar">
-            <div class="nav-item active" data-view="chat">chat</div>
-            <div class="nav-item" data-view="tools">tools</div>
+            <div class="nav-tabs" id="navTabs">
+                <div class="nav-item active" data-view="chat">chat</div>
+                <div class="nav-item" data-view="tools">tools</div>
+            </div>
         </div>
 
         <!-- Chat view -->
@@ -72,6 +74,27 @@
                 </div>
             </div>
         </div>
+
+        <!-- Agent view template (cloned for each agent) -->
+        <template id="agentTemplate">
+            <div class="view-container agent-view">
+                <div class="agent-header">
+                    <div class="agent-contract-section">
+                        <label>Contract:</label>
+                        <textarea class="agent-contract" placeholder="Describe the task for the agent to complete autonomously..."></textarea>
+                    </div>
+                    <div class="agent-controls">
+                        <button class="btn-start">Start</button>
+                        <button class="btn-stop" style="display: none;">Stop</button>
+                        <button class="btn-restart" style="display: none;">Restart</button>
+                        <span class="agent-status">Ready</span>
+                    </div>
+                </div>
+                <div class="agent-output-container">
+                    <div class="agent-output"></div>
+                </div>
+            </div>
+        </template>
     </div>
 
     <script src="/static/app.js"></script>

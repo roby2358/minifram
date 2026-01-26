@@ -10,6 +10,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from src.agents.handler import execute_agent_loop
+from src.agents.state import Agent, AgentStatus, AgentStore
 from src.foundation.state import Conversation, ConversationStore
 from src.models.llm_client import LLMClient
 from src.tools.tool_manager import ToolManager
@@ -264,6 +266,7 @@ PORT = 8101
 # Initialize
 app = FastAPI(title="minifram")
 store = ConversationStore()
+agent_store = AgentStore()
 llm: Optional[LLMClient] = None
 tools: Optional[ToolManager] = None
 
@@ -317,6 +320,58 @@ async def get_tools():
         "servers": tools.get_server_status(),
         "tools": tools.get_all_tools()
     }
+
+
+@app.post("/api/agents")
+async def create_agent():
+    """Create a new agent."""
+    agent = agent_store.create()
+    return {"id": agent.id, "status": agent.status.value}
+
+
+@app.get("/api/agents")
+async def list_agents():
+    """List all agents."""
+    return {
+        "agents": [
+            {"id": a.id, "status": a.status.value, "contract": a.contract[:50] + "..." if len(a.contract) > 50 else a.contract}
+            for a in agent_store.get_all()
+        ]
+    }
+
+
+@app.get("/api/agents/{agent_id}")
+async def get_agent(agent_id: str):
+    """Get agent details."""
+    agent = agent_store.get(agent_id)
+    if not agent:
+        return {"error": "Agent not found"}
+    return {
+        "id": agent.id,
+        "status": agent.status.value,
+        "contract": agent.contract,
+        "output": [
+            {"type": o.type, "content": o.content, "tool_call": o.tool_call}
+            for o in agent.output
+        ]
+    }
+
+
+@app.post("/api/agents/{agent_id}/stop")
+async def stop_agent(agent_id: str):
+    """Request an agent to stop."""
+    agent = agent_store.get(agent_id)
+    if not agent:
+        return {"error": "Agent not found"}
+    agent.request_stop()
+    return {"status": "stop_requested"}
+
+
+@app.delete("/api/agents/{agent_id}")
+async def delete_agent(agent_id: str):
+    """Delete an agent."""
+    agent_store.delete(agent_id)
+    return {"status": "deleted"}
 
 
 @app.websocket("/ws/{conversation_id}")
@@ -418,6 +473,60 @@ async def websocket_endpoint(websocket: WebSocket, conversation_id: str):
 
     except WebSocketDisconnect:
         print(f"Client disconnected from conversation {conversation_id}")
+
+
+@app.websocket("/ws/agent/{agent_id}")
+async def agent_websocket_endpoint(websocket: WebSocket, agent_id: str):
+    """WebSocket endpoint for agent execution."""
+    await websocket.accept()
+
+    agent = agent_store.get(agent_id)
+    if not agent:
+        await websocket.send_json({"type": "error", "content": "Agent not found"})
+        await websocket.close()
+        return
+
+    # Send agent info
+    await websocket.send_json({
+        "type": "init",
+        "id": agent.id,
+        "status": agent.status.value,
+        "contract": agent.contract
+    })
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+
+            if data["type"] == "set_contract":
+                agent.contract = data["contract"]
+                await websocket.send_json({"type": "contract_set", "contract": agent.contract})
+
+            elif data["type"] == "start":
+                if agent.status != AgentStatus.READY:
+                    await websocket.send_json({"type": "error", "content": "Agent not in ready state"})
+                    continue
+
+                if not agent.contract.strip():
+                    await websocket.send_json({"type": "error", "content": "Contract is empty"})
+                    continue
+
+                # Execute the agent loop
+                await execute_agent_loop(websocket, agent, llm, tools)
+
+            elif data["type"] == "stop":
+                agent.request_stop()
+                await websocket.send_json({"type": "stop_requested"})
+
+            elif data["type"] == "restart":
+                agent.reset_for_restart()
+                await websocket.send_json({
+                    "type": "status",
+                    "content": "ready"
+                })
+
+    except WebSocketDisconnect:
+        print(f"Client disconnected from agent {agent_id}")
 
 
 def main():
