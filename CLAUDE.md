@@ -39,7 +39,7 @@ Browser (WebSocket) ↔ FastAPI Server ↔ Local LLM (HTTP API)
 - `src/mcp/hello_server.py` - Example MCP server for testing
 
 **UI:**
-- `src/foundation/static/` - Vanilla JS chat interface
+- `src/static/` - Vanilla JS chat interface
   - Split panel: chat (left) + reasoning trace (right)
   - Navigation tabs for chat/tools views
   - WebSocket client in `app.js`

@@ -271,7 +271,7 @@ llm: Optional[LLMClient] = None
 tools: Optional[ToolManager] = None
 
 # Static files
-static_dir = Path(__file__).parent / "static"
+static_dir = Path(__file__).parent.parent / "static"
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
