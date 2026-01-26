@@ -1,9 +1,9 @@
 """FastAPI server with WebSocket chat interface."""
 import json
+import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response
@@ -17,6 +17,8 @@ from src.foundation.reasoning import extract_reasoning
 from src.foundation.state import Conversation, ConversationStore
 from src.models.llm_client import LLMClient
 from src.tools.tool_manager import ToolManager
+
+logger = logging.getLogger(__name__)
 
 
 # --- Configuration ---
@@ -32,8 +34,8 @@ PORT = 8101
 
 store = ConversationStore()
 agent_store = AgentStore()
-llm: Optional[LLMClient] = None
-tools: Optional[ToolManager] = None
+llm: LLMClient | None = None
+tools: ToolManager | None = None
 static_dir = Path(__file__).parent.parent / "static"
 
 # Create MCP http app early so we can access its lifespan
@@ -74,11 +76,11 @@ async def lifespan(app: FastAPI):
 
     init_mcp(agent_store, start_agent_from_mcp)
 
-    print(f"🚀 minifram starting on http://localhost:{PORT}")
-    print(f"📡 LLM endpoint: {LLM_ENDPOINT}")
-    print(f"🤖 Model: {LLM_MODEL}")
-    print(f"🔧 Tools loaded: {len(tools.get_all_tools())}")
-    print(f"🔌 MCP endpoint: http://localhost:{PORT}/mcp")
+    logger.info("minifram starting on http://localhost:%d", PORT)
+    logger.info("LLM endpoint: %s", LLM_ENDPOINT)
+    logger.info("Model: %s", LLM_MODEL)
+    logger.info("Tools loaded: %d", len(tools.get_all_tools()))
+    logger.info("MCP endpoint: http://localhost:%d/mcp", PORT)
 
     # Run MCP app lifespan nested inside ours
     async with mcp_app.router.lifespan_context(mcp_app):
@@ -330,7 +332,7 @@ async def websocket_endpoint(websocket: WebSocket, conversation_id: str):
             if data["type"] == "message":
                 await handle_chat_message(websocket, conversation, data["content"])
     except WebSocketDisconnect:
-        print(f"Client disconnected from conversation {conversation_id}")
+        logger.debug("Client disconnected from conversation %s", conversation_id)
 
 
 @app.websocket("/ws/agent/{agent_id}")
@@ -371,7 +373,7 @@ async def agent_websocket_endpoint(websocket: WebSocket, agent_id: str):
                 await websocket.send_json({"type": "status", "content": "ready"})
 
     except WebSocketDisconnect:
-        print(f"Client disconnected from agent {agent_id}")
+        logger.debug("Client disconnected from agent %s", agent_id)
 
 
 # --- Entry point ---

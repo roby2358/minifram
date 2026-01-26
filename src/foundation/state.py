@@ -1,7 +1,6 @@
 """In-memory state management for conversations."""
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 
 
 @dataclass
@@ -10,7 +9,7 @@ class Message:
     role: str  # 'user', 'assistant', 'system', 'tool'
     content: str
     timestamp: datetime = field(default_factory=datetime.now)
-    tool_call: Optional[str] = None  # For displaying tool calls
+    tool_call: str | None = None  # For displaying tool calls
 
 
 @dataclass
@@ -20,7 +19,7 @@ class Conversation:
     messages: list[Message] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.now)
 
-    def add_message(self, role: str, content: str, tool_call: Optional[str] = None):
+    def add_message(self, role: str, content: str, tool_call: str | None = None):
         """Add a message to the conversation."""
         msg = Message(role=role, content=content, tool_call=tool_call)
         self.messages.append(msg)
@@ -62,7 +61,7 @@ class ConversationStore:
         self.conversations[conv_id] = conv
         return conv
 
-    def get(self, conv_id: str) -> Optional[Conversation]:
+    def get(self, conv_id: str) -> Conversation | None:
         """Get a conversation by ID."""
         return self.conversations.get(conv_id)
 
