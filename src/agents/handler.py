@@ -11,6 +11,17 @@ from src.models.llm_client import LLMClient
 from src.tools.tool_manager import ToolManager
 
 
+AGENT_SYSTEM_PROMPT_TEMPLATE = """You are an autonomous agent executing a contract. Your task is to complete the objective described in the contract.
+
+Your agent ID is: {agent_id}
+
+When the contract objective is fully satisfied, call the agent_complete tool with your agent_id and a summary of what you accomplished. You may optionally include a payload with detailed work product data.
+
+If you cannot complete the contract (missing tools, errors, etc.), call agent_complete with a summary explaining the failure.
+
+Stay focused on the contract objective. Do not ask for user input - work autonomously."""
+
+# Legacy prompt for backward compatibility
 AGENT_SYSTEM_PROMPT = """You are an autonomous agent executing a contract. Your task is to complete the objective described in the contract.
 
 After each action, evaluate whether the contract objective has been fully satisfied. When the objective is complete, respond with exactly: [CONTRACT COMPLETE]
@@ -70,10 +81,16 @@ def parse_tool_call(tool_call: dict) -> tuple[str, dict]:
     return tool_name, tool_args
 
 
-def init_agent_conversation(agent: Agent):
+def init_agent_conversation(agent: Agent, use_mcp_prompt: bool = False):
     """Initialize agent conversation with system prompt and contract."""
     agent.conversation = Conversation(id=agent.id)
-    agent.conversation.add_message("system", AGENT_SYSTEM_PROMPT)
+
+    if use_mcp_prompt:
+        prompt = AGENT_SYSTEM_PROMPT_TEMPLATE.format(agent_id=agent.id)
+    else:
+        prompt = AGENT_SYSTEM_PROMPT
+
+    agent.conversation.add_message("system", prompt)
     agent.conversation.add_message("user", f"Contract:\n{agent.contract}\n\nBegin executing this contract now.")
 
 
@@ -278,5 +295,135 @@ async def execute_agent_loop(
     except Exception as e:
         await emit_output(websocket, agent, "error", f"Agent error: {str(e)}")
         await set_agent_status(websocket, agent, AgentStatus.STOPPED)
+
+    await write_agent_log(agent)
+
+
+# --- Headless execution (for MCP-triggered agents) ---
+
+async def execute_tool_call_headless(
+    agent: Agent,
+    tools: ToolManager,
+    tool_call: dict
+) -> str:
+    """Execute a single tool call without WebSocket."""
+    tool_name, tool_args = parse_tool_call(tool_call)
+
+    # Record tool call
+    tool_display = tools.format_tool_call(tool_name, tool_args)
+    agent.add_output("tool", "", tool_call=tool_display)
+
+    # Execute and record result
+    try:
+        result = await tools.call_tool(tool_name, tool_args)
+        display_result = f"→ {truncate_result(result)}"
+        agent.add_output("system", display_result)
+        return result
+    except Exception as e:
+        error_msg = f"Tool error: {str(e)}"
+        agent.add_output("error", error_msg)
+        return f"Error: {str(e)}"
+
+
+async def process_tool_calls_headless(
+    agent: Agent,
+    tools: ToolManager,
+    tool_calls: list,
+    assistant_content: str
+):
+    """Process all tool calls without WebSocket."""
+    if assistant_content:
+        agent.add_output("assistant", assistant_content)
+        agent.conversation.add_message("assistant", assistant_content)
+
+    for tool_call in tool_calls:
+        if agent.stop_requested:
+            break
+
+        result = await execute_tool_call_headless(agent, tools, tool_call)
+        agent.conversation.add_message("assistant", assistant_content or "", tool_call=json.dumps(tool_calls))
+        agent.conversation.add_message("tool", result)
+
+
+async def process_single_turn_headless(
+    agent: Agent,
+    llm: LLMClient,
+    tools: ToolManager,
+    available_tools: list
+) -> bool:
+    """Process one LLM turn without WebSocket. Returns True if loop should continue."""
+    assistant_content, tool_calls = await get_llm_response(
+        llm, agent.conversation.to_llm_format(), available_tools
+    )
+
+    # Check for contract completion (legacy pattern)
+    final_status = check_contract_status(assistant_content)
+    if final_status:
+        agent.add_output("assistant", assistant_content)
+        agent.status = AgentStatus.COMPLETED if final_status == "completed" else AgentStatus.STOPPED
+        if final_status == "completed":
+            agent.completed_at = datetime.now()
+        else:
+            agent.stopped_at = datetime.now()
+        return False
+
+    # Check if agent was completed via MCP tool
+    if agent.status == AgentStatus.COMPLETED:
+        return False
+
+    # Process tool calls or plain response
+    if tool_calls:
+        await process_tool_calls_headless(agent, tools, tool_calls, assistant_content)
+    else:
+        agent.add_output("assistant", assistant_content)
+        agent.conversation.add_message("assistant", assistant_content)
+
+    return True
+
+
+async def run_agent_loop_headless(
+    agent: Agent,
+    llm: LLMClient,
+    tools: ToolManager,
+    available_tools: list
+):
+    """Run the agent loop without WebSocket until completion, failure, or stop."""
+    while not agent.stop_requested:
+        should_continue = await process_single_turn_headless(
+            agent, llm, tools, available_tools
+        )
+        if not should_continue:
+            return
+
+        # Check if completed via MCP tool
+        if agent.status == AgentStatus.COMPLETED:
+            return
+
+    agent.status = AgentStatus.STOPPED
+    agent.stopped_at = datetime.now()
+
+
+async def execute_agent_loop_headless(
+    agent: Agent,
+    llm: LLMClient,
+    tools: ToolManager
+):
+    """Execute the autonomous agent loop without WebSocket (for MCP).
+
+    The agent runs until:
+    - agent_complete tool is called
+    - Contract fails
+    - Stop is requested
+    - Error occurs
+    """
+    init_agent_conversation(agent, use_mcp_prompt=True)
+    available_tools = build_tool_definitions(tools) if tools else []
+
+    try:
+        await run_agent_loop_headless(agent, llm, tools, available_tools)
+    except Exception as e:
+        agent.add_output("error", f"Agent error: {str(e)}")
+        agent.status = AgentStatus.STOPPED
+        agent.stopped_at = datetime.now()
 
     await write_agent_log(agent)

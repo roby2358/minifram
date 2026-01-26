@@ -34,6 +34,13 @@ class Agent:
     conversation: Optional[Conversation] = None
     created_at: datetime = field(default_factory=datetime.now)
     stop_requested: bool = False
+    # MCP-related fields
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    stopped_at: Optional[datetime] = None
+    summary: Optional[str] = None
+    payload: Optional[bytes] = None  # gzip-compressed
+    payload_size: Optional[int] = None  # original uncompressed size
 
     def add_output(self, type: str, content: str, tool_call: Optional[str] = None):
         """Add an output entry."""

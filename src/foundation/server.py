@@ -6,11 +6,12 @@ from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from src.agents.handler import execute_agent_loop
+from src.agents.handler import execute_agent_loop, execute_agent_loop_headless
+from src.agents.mcp_server import mcp, init_mcp
 from src.agents.state import Agent, AgentStatus, AgentStore
 from src.foundation.state import Conversation, ConversationStore
 from src.models.llm_client import LLMClient
@@ -274,6 +275,16 @@ tools: Optional[ToolManager] = None
 static_dir = Path(__file__).parent.parent / "static"
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
+# Mount MCP server
+mcp_app = mcp.http_app(path="/mcp")
+app.mount("/mcp", mcp_app)
+
+
+async def start_agent_from_mcp(agent: Agent):
+    """Callback for MCP to start agent execution without WebSocket."""
+    agent.status = AgentStatus.RUNNING
+    await execute_agent_loop_headless(agent, llm, tools)
+
 
 @app.on_event("startup")
 async def startup():
@@ -283,10 +294,14 @@ async def startup():
     tools = ToolManager()
     await tools.load_config("mcp_config.json")
 
+    # Initialize MCP with shared state
+    init_mcp(agent_store, start_agent_from_mcp)
+
     print(f"🚀 minifram starting on http://localhost:{PORT}")
     print(f"📡 LLM endpoint: {LLM_ENDPOINT}")
     print(f"🤖 Model: {LLM_MODEL}")
     print(f"🔧 Tools loaded: {len(tools.get_all_tools())}")
+    print(f"🔌 MCP endpoint: http://localhost:{PORT}/mcp")
 
 
 @app.on_event("shutdown")
@@ -372,6 +387,22 @@ async def delete_agent(agent_id: str):
     """Delete an agent."""
     agent_store.delete(agent_id)
     return {"status": "deleted"}
+
+
+@app.get("/api/agents/{agent_id}/payload")
+async def get_agent_payload(agent_id: str):
+    """Get agent payload (gzip-compressed)."""
+    agent = agent_store.get(agent_id)
+    if not agent:
+        return Response(status_code=404, content="Agent not found")
+    if agent.payload is None:
+        return Response(status_code=404, content="No payload")
+
+    return Response(
+        content=agent.payload,
+        media_type="application/octet-stream",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 
 @app.websocket("/ws/{conversation_id}")
