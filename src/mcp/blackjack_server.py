@@ -178,7 +178,7 @@ def get_tool_definitions() -> list[dict]:
     return [
         {
             "name": "blackjack_deal",
-            "description": "Start a new blackjack hand. Deals two cards to dealer (first hidden) and two to player.",
+            "description": "Server is dealer. Start new hand: deals 2 cards each, first dealer card hidden.",
             "inputSchema": {
                 "type": "object",
                 "properties": {},
@@ -187,7 +187,7 @@ def get_tool_definitions() -> list[dict]:
         },
         {
             "name": "blackjack_hit",
-            "description": "Deal one additional card to the player. Busts if total exceeds 21.",
+            "description": "Server deals one card to player. Call this tool for each hit - don't simulate.",
             "inputSchema": {
                 "type": "object",
                 "properties": {},
@@ -196,7 +196,7 @@ def get_tool_definitions() -> list[dict]:
         },
         {
             "name": "blackjack_stay",
-            "description": "End player's turn. Dealer reveals hidden card and draws until reaching 17+. Determines winner.",
+            "description": "Player stands. Server reveals and plays dealer hand to 17+, determines winner.",
             "inputSchema": {
                 "type": "object",
                 "properties": {},
