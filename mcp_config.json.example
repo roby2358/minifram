@@ -1,7 +1,11 @@
 {
   "hello": {
-    "command": "python",
-    "args": ["src/mcp/hello_server.py"]
+    "command": "uv",
+    "args": ["run", "python", "src/mcp/hello_server.py"]
+  },
+  "blackjack": {
+    "command": "uv",
+    "args": ["run", "python", "src/mcp/blackjack_server.py"]
   },
   "filesystem": {
     "command": "mcp-server-filesystem",
