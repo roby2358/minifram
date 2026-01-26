@@ -1,21 +1,45 @@
 """LLM client for local model interaction."""
-import httpx
 import json
-from typing import AsyncIterator
+import logging
+from typing import Any, Optional
+
+import httpx
+
+logger = logging.getLogger(__name__)
 
 
 class LLMClient:
     """HTTP client for local LLM (GLM or OpenAI-compatible)."""
 
-    def __init__(self, endpoint: str, model: str):
+    def __init__(self, endpoint: str, model: str, timeout: float = 60.0):
         self.endpoint = endpoint
         self.model = model
-        self.client = httpx.AsyncClient(timeout=60.0)
+        self.client = httpx.AsyncClient(timeout=timeout)
+
+    def _log_request(self, payload: dict, label: str = "REQUEST") -> None:
+        """Log request payload for debugging."""
+        logger.debug("%s TO MODEL:\n%s", label, json.dumps(payload, indent=2))
+
+    def _log_response(self, result: dict, label: str = "RESPONSE") -> None:
+        """Log response body for debugging."""
+        logger.debug("%s FROM MODEL:\n%s", label, json.dumps(result, indent=2))
+
+    async def _send_request(self, payload: dict, label: str = "") -> dict:
+        """Send request and return response, with logging."""
+        prefix = f"{label} " if label else ""
+        self._log_request(payload, f"{prefix}REQUEST")
+
+        response = await self.client.post(self.endpoint, json=payload)
+        response.raise_for_status()
+        result = response.json()
+
+        self._log_response(result, f"{prefix}RESPONSE")
+        return result
 
     async def chat(
         self,
         messages: list[dict[str, str]],
-        tools: list[dict] = None
+        tools: Optional[list[dict]] = None
     ) -> dict:
         """Send chat completion request to local LLM.
 
@@ -26,55 +50,22 @@ class LLMClient:
         Returns:
             LLM response dict
         """
-        payload = {
+        payload: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
         }
 
-        # Add tools if provided
         if tools:
             payload["tools"] = tools
 
-        # Echo request payload
-        print("\n" + "="*80)
-        print("🔵 REQUEST TO MODEL:")
-        print(json.dumps(payload, indent=2))
-        print("="*80 + "\n")
-
         try:
-            response = await self.client.post(self.endpoint, json=payload)
-            response.raise_for_status()
-            result = response.json()
-
-            # Echo response body
-            print("\n" + "="*80)
-            print("🟢 RESPONSE FROM MODEL:")
-            print(json.dumps(result, indent=2))
-            print("="*80 + "\n")
-
-            return result
+            return await self._send_request(payload)
         except httpx.HTTPStatusError as e:
             # If tools caused the error (400), retry without tools
             if e.response.status_code == 400 and tools:
-                print(f"⚠️  Tool call failed (400), retrying without tools\n")
+                logger.warning("Tool call failed (400), retrying without tools")
                 payload.pop("tools", None)
-
-                print("\n" + "="*80)
-                print("🔵 RETRY REQUEST TO MODEL:")
-                print(json.dumps(payload, indent=2))
-                print("="*80 + "\n")
-
-                response = await self.client.post(self.endpoint, json=payload)
-                response.raise_for_status()
-                result = response.json()
-
-                # Echo response body
-                print("\n" + "="*80)
-                print("🟢 RETRY RESPONSE FROM MODEL:")
-                print(json.dumps(result, indent=2))
-                print("="*80 + "\n")
-
-                # Mark that tools aren't supported
+                result = await self._send_request(payload, "RETRY")
                 result["_tools_unsupported"] = True
                 return result
             raise
