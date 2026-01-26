@@ -4,7 +4,7 @@ A minimal agent framework for local LLM interaction with MCP tool support.
 
 ## Purpose
 
-Provide a lightweight alternative to Claude Code that runs entirely local. Single dev working with local models (GLM) needs chat interface, tool calling via MCP, and autonomous agent spawning.
+Provide a lightweight alternative to agent frameworks that can run entirely local. Single dev working with local models (GLM) needs chat interface, tool calling via MCP, and autonomous agent spawning.
 
 ## UI Layout
 
