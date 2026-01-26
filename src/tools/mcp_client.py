@@ -1,8 +1,10 @@
 """MCP client for connecting to MCP servers via stdio."""
 import asyncio
 import json
+import logging
 from typing import Any, Optional
-import sys
+
+logger = logging.getLogger(__name__)
 
 
 class MCPClient:
@@ -85,19 +87,17 @@ class MCPClient:
         result = await self._send_request("tools/list")
         self.tools = result.get("tools", [])
 
-    async def call_tool(self, name: str, arguments: dict) -> str:
-        """Call a tool on the MCP server."""
+    async def call_tool(self, name: str, arguments: dict) -> list[dict]:
+        """Call a tool on the MCP server.
+
+        Returns the full content list from MCP response, preserving all content blocks.
+        Each block has 'type' (e.g., 'text', 'image') and type-specific fields.
+        """
         result = await self._send_request("tools/call", {
             "name": name,
             "arguments": arguments
         })
-
-        # Extract text from content
-        content = result.get("content", [])
-        if content and len(content) > 0:
-            return content[0].get("text", "")
-
-        return ""
+        return result.get("content", [])
 
     async def close(self):
         """Close the MCP server connection."""

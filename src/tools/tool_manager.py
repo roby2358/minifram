@@ -1,8 +1,13 @@
 """Tool manager for handling MCP servers and tool execution."""
 import json
+import logging
+from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
+
 from src.tools.mcp_client import MCPClient
+
+logger = logging.getLogger(__name__)
 
 
 class ToolManager:
@@ -11,13 +16,14 @@ class ToolManager:
     def __init__(self):
         self.servers: dict[str, MCPClient] = {}
         self.internal_tools: dict[str, dict] = {}  # name -> {handler, definition}
+        self._tool_index: dict[str, str] = {}  # tool_name -> server_name (for O(1) lookup)
 
     def register_internal_tool(
         self,
         name: str,
         description: str,
         parameters: dict,
-        handler: Callable[..., Any]
+        handler: Callable[..., Awaitable[Any]]
     ):
         """Register an internal tool (not from MCP server)."""
         self.internal_tools[name] = {
@@ -29,13 +35,14 @@ class ToolManager:
                 "_server": "_internal"
             }
         }
+        self._tool_index[name] = "_internal"
 
     async def load_config(self, config_path: str = "mcp_config.json"):
         """Load MCP server configuration and start servers."""
         config_file = Path(config_path)
 
         if not config_file.exists():
-            print(f"⚠️  MCP config not found: {config_path}")
+            logger.warning("MCP config not found: %s", config_path)
             return
 
         try:
@@ -47,19 +54,22 @@ class ToolManager:
                 args = server_config.get("args", [])
 
                 if not command:
-                    print(f"⚠️  No command for MCP server: {server_name}")
+                    logger.warning("No command for MCP server: %s", server_name)
                     continue
 
                 try:
                     client = MCPClient(command, args)
                     await client.start()
                     self.servers[server_name] = client
-                    print(f"✅ MCP server started: {server_name} ({len(client.tools)} tools)")
+                    # Index all tools from this server for O(1) lookup
+                    for tool in client.tools:
+                        self._tool_index[tool["name"]] = server_name
+                    logger.info("MCP server started: %s (%d tools)", server_name, len(client.tools))
                 except Exception as e:
-                    print(f"❌ Failed to start {server_name}: {e}")
+                    logger.error("Failed to start %s: %s", server_name, e)
 
         except Exception as e:
-            print(f"❌ Failed to load MCP config: {e}")
+            logger.error("Failed to load MCP config: %s", e)
 
     def get_all_tools(self) -> list[dict]:
         """Get all tools from all servers and internal tools."""
@@ -90,24 +100,31 @@ class ToolManager:
         return status
 
     async def call_tool(self, tool_name: str, arguments: dict) -> str:
-        """Call a tool by name across all servers and internal tools."""
-        # Check internal tools first
-        if tool_name in self.internal_tools:
+        """Call a tool by name across all servers and internal tools.
+
+        Returns the tool result as a string. For MCP tools with multiple content
+        blocks, all text content is joined with newlines.
+        """
+        # O(1) lookup using index
+        server_name = self._tool_index.get(tool_name)
+
+        if server_name is None:
+            available = list(self._tool_index.keys())
+            raise ValueError(f"Tool '{tool_name}' not found. Available tools: {available}")
+
+        # Internal tool
+        if server_name == "_internal":
             handler = self.internal_tools[tool_name]["handler"]
             result = await handler(**arguments)
             return json.dumps(result) if isinstance(result, dict) else str(result)
 
-        # Find which MCP server has this tool
-        for server_name, client in self.servers.items():
-            for tool in client.tools:
-                if tool["name"] == tool_name:
-                    return await client.call_tool(tool_name, arguments)
+        # MCP server tool
+        client = self.servers[server_name]
+        content_blocks = await client.call_tool(tool_name, arguments)
 
-        # Tool not found
-        available = list(self.internal_tools.keys()) + [
-            t["name"] for client in self.servers.values() for t in client.tools
-        ]
-        raise ValueError(f"Tool '{tool_name}' not found. Available tools: {available}")
+        # Extract text from all content blocks
+        texts = [block.get("text", "") for block in content_blocks if block.get("type") == "text"]
+        return "\n".join(texts) if texts else ""
 
     def format_tool_call(self, tool_name: str, arguments: dict) -> str:
         """Format tool call for display (80 char limit)."""
@@ -125,3 +142,5 @@ class ToolManager:
         for client in self.servers.values():
             await client.close()
         self.servers.clear()
+        # Keep internal tools in index, remove MCP tools
+        self._tool_index = {k: v for k, v in self._tool_index.items() if v == "_internal"}
