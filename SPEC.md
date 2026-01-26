@@ -71,6 +71,8 @@ Agent Tab (running):
 - The application MUST support multiple concurrent chat tabs
 - Each tab MUST maintain independent conversation history
 - Tool calls MUST be displayed with name and parameters, limited to 80 characters with ellipsis
+- The application MUST extract and display LLM reasoning in a separate panel
+- Reasoning MUST be extracted from `message.reasoning` field, `<think>` tags, or `<thinking>` tags
 
 ### LLM Integration
 
