@@ -2,6 +2,8 @@
 
 A Model Context Protocol server implementing simplified blackjack for testing multi-round tool interactions.
 
+**Implementation:** `src/mcp/blackjack_server.py`
+
 ## Purpose
 
 Provide a stateful game MCP server to verify that LLMs can correctly handle multi-turn interactions with tools, maintain game state across calls, and respond appropriately to dynamic game outcomes.
@@ -37,13 +39,15 @@ The server MUST provide three tools via MCP `tools/list`:
 
 #### blackjack_hit
 
+- If no hand is in progress, the server MUST return "No hand in progress. Call blackjack_deal to start a new hand."
 - The server MUST deal one additional card to the player
 - If the player's hand total exceeds 21, the server MUST declare "Bust! Dealer wins!" and end the hand
-- If the player's hand total is 21 or less, the server MUST return the updated game state
+- If the player's hand total is 21 or less, the server MUST return the updated game state with a prompt to continue
 - The server MUST allow multiple sequential calls to `blackjack_hit`
 
 #### blackjack_stand
 
+- If no hand is in progress, the server MUST return "No hand in progress. Call blackjack_deal to start a new hand."
 - The server MUST reveal the dealer's hidden card
 - The dealer MUST draw cards until reaching 17 or higher
 - If the dealer busts (exceeds 21), the server MUST declare "Player wins!" and end the hand
@@ -71,6 +75,7 @@ Valid messages:
 - `Dealer wins!` - Dealer has better hand
 - `Bust! Dealer wins!` - Player exceeds 21
 - `Push! Dealer wins!` - Hands tie (dealer wins ties)
+- `Call blackjack_hit or blackjack_stand to continue.` - Prompts LLM to take next action
 
 ## Non-Functional Requirements
 
@@ -89,6 +94,10 @@ Valid messages:
 
 ## Implementation Notes
 
+### FastMCP
+
+The server uses FastMCP for simplified MCP server implementation. Tools are defined using the `@mcp.tool()` decorator with docstrings providing LLM-oriented descriptions.
+
 ### Ace Valuation
 
 Aces are automatically valued optimally. When calculating hand totals, the server tries counting aces as 11 first, then as 1 if that would prevent a bust. This maximizes the player's chances without requiring explicit choice.
@@ -100,6 +109,8 @@ The dealer follows standard casino rules: draw until reaching 17 or higher, then
 ### State Persistence
 
 Game state exists only during the MCP server process lifetime. Terminating the server resets all game state. Each `blackjack_deal` call starts a fresh hand but maintains the same session.
+
+The server tracks whether a hand is currently in progress. Calling `blackjack_hit` or `blackjack_stand` when no hand is active returns an error message prompting the LLM to call `blackjack_deal` first.
 
 ### Random Number Generation
 
