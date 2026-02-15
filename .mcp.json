@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "hello": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["run", "python", "src/mcp/hello_server.py"]
+    },
+    "blackjack": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["run", "python", "src/mcp/blackjack_server.py"]
+    },
+    "z3_solver": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "yuwakisa-z3solver-mcp"]
+    }
+  }
+}
